@@ -18,6 +18,7 @@
   class HiveSim {
     constructor() {
       this.day = 0;
+      this.moisture = .65;
       this._adults = Array.from({length:210}, (_, age) => age < 46 ? 390 * Math.exp(-age/55) : 0);
       this._young = Array.from({length:21}, (_, age) => 540 - 7 * age);
       this.honey = 10;
@@ -69,13 +70,14 @@
     _advance(day) {
       const oldSeason = this.season;
       this._calendar(day);
+      this.moisture=clamp(this.moisture+(this.rain?.20:0)-(.013+.0011*Math.max(0,this.air)));
       this._flight();
       if (oldSeason !== this.season) this.event = ({
         Printemps:'Les floraisons de printemps reprennent.', Été:'Les floraisons estivales se succèdent.',
         Automne:'La colonie se prépare à hiverner.', Hiver:'Les ouvrières se regroupent pendant les journées froides.'
       })[this.season];
       // Returning foragers provision the hive; nectar ripens into honey gradually.
-      this.nectar += this.nectarForagers * .00049;
+      this.nectar += this.nectarForagers * .00049 * (.80+.30*this.moisture);
       this.pollen = Math.min(6, this.pollen + this.pollenForagers * .00049);
       const ripened = this.nectar * .46;
       this.nectar -= ripened;

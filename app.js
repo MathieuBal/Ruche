@@ -1,24 +1,26 @@
 'use strict';
 const sim = new HiveSim();
+sim.step(9/24);
 const $ = id => document.getElementById(id);
 const scene=$('scene'), canvas=scene.querySelector('canvas'), ctx=canvas.getContext('2d');
 const format=new Intl.NumberFormat('fr-FR'), dec=new Intl.NumberFormat('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1});
-let inside=false, paused=false, speed=1, elapsed=0, last=0, lastUpdate=-1;
+let inside=false, paused=matchMedia("(prefers-reduced-motion: reduce)").matches, speed=1, elapsed=0, last=0, lastUpdate=-1;
 const rows=[['Ouvrières','population'],['Butineuses en vol','foragers'],['Miel','honey'],['Couvain','brood'],['Œufs','eggs'],['Larves','larvae'],['Cellules operculées','sealed'],['Pollen','pollen'],['Température du couvain','temp'],['Reine','queenStatus'],['Collecte de pollen','pollenForagers'],['Collecte de nectar','nectarForagers']];
 for(const [label,key] of rows){
   const div=document.createElement('div'), dt=document.createElement('dt'), dd=document.createElement('dd');
   dt.textContent=label; dd.id='stat-'+key;div.append(dt,dd);$('stats').append(div);
 }
 function update(){
+  const sky=gardenSky(sim);
   for(let i=0;i<rows.length;i++){
     const key=rows[i][1], dd=$('stat-'+key);
     dd.parentNode.hidden=!inside && i>=4;
     dd.parentNode.style.display=dd.parentNode.hidden?'none':'';
-    dd.textContent=key==='temp'?dec.format(sim.temp)+' °C':key==='honey'||key==='pollen'?dec.format(sim[key])+' kg':key==='queenStatus'?sim[key]:format.format(sim[key]);
+    dd.textContent=key==='temp'?dec.format(sim.temp)+' °C':key==='honey'||key==='pollen'?dec.format(sim[key])+' kg':key==='queenStatus'?sim[key]:format.format(['foragers','pollenForagers','nectarForagers'].includes(key)?Math.round(sim[key]*sky.flight):sim[key]);
   }
   $('event').textContent=sim.event;
   $('season').textContent=sim.season;
-  $('date').textContent=sim.date+' · '+sim.weather;
+  $('date').textContent=sim.date+' · '+String(Math.floor(sky.hour)).padStart(2,'0')+' h '+String(Math.floor(sky.hour*60)%60).padStart(2,'0')+' · '+sim.weather;
 }
 function setView(value){
   inside=value;scene.classList.toggle('inside',inside);
@@ -87,7 +89,9 @@ function drawBrood(){
 function draw(){
   const dim=canvas.width; ctx.setTransform(dim/1000,0,0,dim/1000,0,0);ctx.clearRect(0,0,1000,1000);
   if(!inside){
-    const n=Math.min(150,Math.ceil(sim.foragers/45));
+    const sky=gardenSky(sim);
+    paintGarden(ctx,sim,sky,elapsed);
+    const n=Math.min(150,Math.ceil(sim.foragers*sky.flight/45));
     for(let i=0;i<n;i++){
       const [x,y,a,perched,returning]=flight(i,elapsed);
       const pollen=returning && noise(i+73)<sim.pollenForagers/Math.max(1,sim.foragers);
@@ -106,7 +110,7 @@ function draw(){
     return;
   }
   drawBrood();
-  const n=Math.min(110,Math.ceil(Math.max(0,sim.population-sim.foragers)/245));
+  const n=Math.min(110,Math.ceil(Math.max(0,sim.population-sim.foragers*gardenSky(sim).flight)/245));
   for(let i=0;i<n;i++){
     const theta=2*Math.PI*noise(i+32),r=Math.sqrt(noise(i+15));
     const spread=sim.season==='Hiver'?.62:1;
@@ -117,8 +121,9 @@ function draw(){
 }
 function frame(ms){
   const dt=Math.min(.12,Math.max(0,(ms-(last||ms))/1000));last=ms;
-  if(!paused&&!modal.open&&!document.hidden){sim.step(dt*speed/10);elapsed+=dt*Math.min(4,Math.sqrt(speed));}
-  if(lastUpdate!==Math.floor(sim.day)){lastUpdate=Math.floor(sim.day);update();}
+  if(!paused&&!modal.open&&!document.hidden){sim.step(dt*speed/120);elapsed+=dt*Math.min(4,Math.sqrt(speed));}
+  if(lastUpdate!==Math.floor(sim.day*1440)){lastUpdate=Math.floor(sim.day*1440);update();}
   draw();requestAnimationFrame(frame);
 }
+if(paused){$('pause').textContent='▶';$('pause').setAttribute('aria-label','Reprendre');}
 new ResizeObserver(resize).observe(scene);update();resize();requestAnimationFrame(frame);
