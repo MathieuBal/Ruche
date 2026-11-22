@@ -44,7 +44,10 @@
       this.air = 14 + 9*Math.sin(yearAngle) + 2.6*Math.sin(day*.78) + 1.5*Math.cos(day*.23);
       this.rain = Math.sin(day*1.31)*.7 + Math.sin(day*.27)*.3 > .62;
       const bloom = (peak, width) => Math.exp(-(((this._yearDay-peak)/width)**2));
-      this.bloom = clamp(.65*bloom(117,35) + .88*bloom(172,41) + .45*bloom(245,28));
+      this.flowers = [.65*bloom(117,35), .88*bloom(172,41), .45*bloom(245,28)];
+      this.bloom = clamp(sum(this.flowers));
+      this.autumnColor=bloom(294,32);
+      this.winterColor=(1-Math.cos((this._yearDay-196)*2*Math.PI/365))/2;
       this.weather = this.rain ? 'Pluie' : (this.air < 12 ? 'Frais' : 'Éclaircies');
     }
     _count() {
