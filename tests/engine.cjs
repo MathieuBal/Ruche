@@ -71,3 +71,16 @@ test('les collectes de pollen et de nectar suivent les besoins du couvain', () =
   assert.ok(sim.pollenForagers>low);
   assert.equal(sim.pollenForagers+sim.nectarForagers,total);
 });
+
+test('la pluie humidifie le jardin et le sol sèche pendant les journées sèches', () => {
+  const sim=new HiveSim();
+  let showers=0, dryDays=0;
+  for(let i=0;i<365;i++){
+    const before=sim.moisture;
+    sim.step(1);
+    assert.ok(sim.moisture>=0 && sim.moisture<=1);
+    if(sim.rain && before<.8){assert.ok(sim.moisture>before);showers++;}
+    if(!sim.rain && before>.05){assert.ok(sim.moisture<before);dryDays++;}
+  }
+  assert.ok(showers>0 && dryDays>0);
+});
