@@ -56,6 +56,12 @@
     _flight() {
       const flightWindow = clamp((this.air-10)/9) * (this.rain ? .04 : 1);
       this.foragers = Math.round(sum(this._adults,19) * flightWindow * this.bloom * .60);
+      // A larger larval cohort consumes pollen faster. Ten days of demand is
+      // an illustrative response scale, not a measured biological threshold.
+      const targetPollen = .25 + this.larvae * .000027 * 10;
+      const pollenShare = .11 + .34 * targetPollen / (targetPollen + this.pollen);
+      this.pollenForagers = Math.round(this.foragers * pollenShare);
+      this.nectarForagers = this.foragers - this.pollenForagers;
       const heating = clamp(this.population/5200) * clamp(this.honey/.8);
       const coreTarget = this.brood > 60 ? 35 : 23;
       this.temp = Math.min(36, this.air + (coreTarget-this.air)*heating);
@@ -69,9 +75,8 @@
         Automne:'La colonie se prépare à hiverner.', Hiver:'Les ouvrières se regroupent pendant les journées froides.'
       })[this.season];
       // Returning foragers provision the hive; nectar ripens into honey gradually.
-      const intake = this.foragers*.00049;
-      this.nectar += intake * .79;
-      this.pollen = Math.min(6, this.pollen + intake * .21);
+      this.nectar += this.nectarForagers * .00049;
+      this.pollen = Math.min(6, this.pollen + this.pollenForagers * .00049);
       const ripened = this.nectar * .46;
       this.nectar -= ripened;
       this.honey = Math.min(56, this.honey + .56*ripened);

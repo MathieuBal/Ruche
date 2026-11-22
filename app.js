@@ -4,7 +4,7 @@ const $ = id => document.getElementById(id);
 const scene=$('scene'), canvas=scene.querySelector('canvas'), ctx=canvas.getContext('2d');
 const format=new Intl.NumberFormat('fr-FR'), dec=new Intl.NumberFormat('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1});
 let inside=false, paused=false, speed=1, elapsed=0, last=0, lastUpdate=-1;
-const rows=[['Ouvrières','population'],['Butineuses en vol','foragers'],['Miel','honey'],['Couvain','brood'],['Œufs','eggs'],['Larves','larvae'],['Cellules operculées','sealed'],['Pollen','pollen'],['Température du couvain','temp'],['Reine','queenStatus']];
+const rows=[['Ouvrières','population'],['Butineuses en vol','foragers'],['Miel','honey'],['Couvain','brood'],['Œufs','eggs'],['Larves','larvae'],['Cellules operculées','sealed'],['Pollen','pollen'],['Température du couvain','temp'],['Reine','queenStatus'],['Collecte de pollen','pollenForagers'],['Collecte de nectar','nectarForagers']];
 for(const [label,key] of rows){
   const div=document.createElement('div'), dt=document.createElement('dt'), dd=document.createElement('dd');
   dt.textContent=label; dd.id='stat-'+key;div.append(dt,dd);$('stats').append(div);
@@ -37,22 +37,27 @@ function resize(){
 }
 const flowers=[[.13,.12],[.31,.075],[.77,.18],[.85,.28],[.11,.89],[.085,.74],[.88,.78],[.89,.91],[.09,.40],[.62,.94]];
 function noise(k){const v=Math.sin(k*127.1+311.7)*43758.5453;return v-Math.floor(v)}
-function bee(x,y,angle,s,flight,id){
+function bee(x,y,angle,s,flight,id,pellets=false){
   ctx.save();ctx.translate(x,y);ctx.rotate(angle);ctx.scale(s,s);
   ctx.fillStyle='rgba(31,25,11,.24)';ctx.beginPath();ctx.ellipse(1.6,1.7,3,1.1,0,0,Math.PI*2);ctx.fill();
   ctx.fillStyle='#452d17';ctx.beginPath();ctx.ellipse(0,0,2.9,1.25,0,0,Math.PI*2);ctx.fill();
   ctx.fillStyle='#d6a347';ctx.fillRect(-1.55,-.92,.8,1.84);ctx.fillRect(-.28,-1.1,.8,2.2);
   ctx.fillStyle=flight?'rgba(255,252,231,.78)':'rgba(226,218,184,.68)';
   for(const side of [-1,1]){ctx.beginPath();ctx.ellipse(-.25,side*(flight?1.24:.65),1.75,.78,side*(flight?.6+.22*Math.sin(elapsed*26+id):.27),0,Math.PI*2);ctx.fill();}
+  if(pellets){
+    ctx.fillStyle='#ffc33f';
+    for(const side of [-1,1]){ctx.beginPath();ctx.arc(-1.35,side*1.38,1,0,Math.PI*2);ctx.fill();}
+  }
   ctx.restore();
 }
 function flight(i,t){
   const target=flowers[i%flowers.length],phase=(t*(.065+.05*noise(i+2))+noise(i+27))%1;
-  const u=phase<.5?phase*2:2-phase*2, dir=phase<.5?1:-1;
+  const perched=phase>=.4 && phase<.6, returning=phase>=.6;
+  const u=returning?(1-phase)/.4:Math.min(1,phase/.4), dir=returning?-1:1;
   const ex=.501,ey=.582,tx=target[0]+.04*(noise(i+6)-.5),ty=target[1]+.04*(noise(i+15)-.5);
   const dx=tx-ex,dy=ty-ey,bend=.22*(noise(i+10)-.5)*Math.sin(u*Math.PI);
   const flutter=.005*Math.sin(13*u+i)*Math.sin(Math.PI*u);
-  return [ex+u*dx+dy*bend+flutter,ey+u*dy-dx*bend+flutter,Math.atan2(dy*dir,dx*dir)];
+  return [ex+u*dx+dy*bend+flutter,ey+u*dy-dx*bend+flutter,Math.atan2(dy*dir,dx*dir),perched,returning];
 }
 // Sample a patch of the brood comb. Each cell keeps its rank between model updates.
 const cellPatch=[];
@@ -83,7 +88,21 @@ function draw(){
   const dim=canvas.width; ctx.setTransform(dim/1000,0,0,dim/1000,0,0);ctx.clearRect(0,0,1000,1000);
   if(!inside){
     const n=Math.min(150,Math.ceil(sim.foragers/45));
-    for(let i=0;i<n;i++){const [x,y,a]=flight(i,elapsed);bee(x*1000,y*1000,a,1.35,true,i);}
+    for(let i=0;i<n;i++){
+      const [x,y,a,perched,returning]=flight(i,elapsed);
+      const pollen=returning && noise(i+73)<sim.pollenForagers/Math.max(1,sim.foragers);
+      bee(x*1000,y*1000,a,1.5,!perched,i,pollen);
+    }
+    if(sim.rain){
+      ctx.fillStyle='rgba(22,43,58,.18)';ctx.fillRect(0,0,1000,1000);
+      ctx.strokeStyle='rgba(218,231,236,.42)';ctx.lineWidth=1.3;ctx.beginPath();
+      for(let i=0;i<65;i++){
+        const y=(noise(i+7)*1000+elapsed*330)%1020-10;
+        const x=(noise(i+50)*1000+.17*y+1000)%1000;
+        ctx.moveTo(x,y);ctx.lineTo(x+2,y+11);
+      }
+      ctx.stroke();
+    }
     return;
   }
   drawBrood();

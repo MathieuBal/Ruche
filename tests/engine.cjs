@@ -59,3 +59,15 @@ test('trois cycles annuels : hivernage, essaimage, relève et stocks finis', () 
   assert.ok(sim.swarms>=2);
   assert.ok(winterLoss && mean(traffic.Hiver)<mean(traffic.Été)*.05);
 });
+
+test('les collectes de pollen et de nectar suivent les besoins du couvain', () => {
+  const sim=new HiveSim();
+  sim.pollen=4;sim._flight();
+  const full=sim.pollenForagers, total=sim.foragers;
+  sim.pollen=.1;sim._flight();
+  assert.ok(sim.pollenForagers>full);
+  const low=sim.pollenForagers;
+  sim.larvae*=2;sim._flight();
+  assert.ok(sim.pollenForagers>low);
+  assert.equal(sim.pollenForagers+sim.nectarForagers,total);
+});
