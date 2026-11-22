@@ -33,11 +33,17 @@ $('visit').onclick=()=>setView(true);$('back').onclick=()=>setView(false);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&inside&&!document.querySelector('dialog').open)setView(false)});
 $('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'▶':'Ⅱ';$('pause').setAttribute('aria-label',paused?'Reprendre':'Mettre en pause')};
 document.querySelectorAll('[data-speed]').forEach(btn=>btn.onclick=()=>{speed=Number(btn.dataset.speed);document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)))});
+$('nextSeason').onclick=()=>{
+  const previous=sim.season;
+  do{sim.step(1);}while(sim.season===previous);
+  trips.length=0;
+  update();draw();
+};
 const modal=document.querySelector('dialog');$('sources').onclick=()=>modal.showModal();$('close').onclick=()=>modal.close();
 function resize(){
   const size=Math.max(1,Math.round(scene.clientWidth*Math.min(devicePixelRatio||1,2))); canvas.width=canvas.height=size;draw();
 }
-const flowers=[[.13,.12],[.31,.075],[.77,.18],[.85,.28],[.11,.89],[.085,.74],[.88,.78],[.89,.91],[.09,.40],[.62,.94]];
+const trips=[];
 function noise(k){const v=Math.sin(k*127.1+311.7)*43758.5453;return v-Math.floor(v)}
 function bee(x,y,angle,s,flight,id,pellets=false){
   ctx.save();ctx.translate(x,y);ctx.rotate(angle);ctx.scale(s,s);
@@ -53,10 +59,15 @@ function bee(x,y,angle,s,flight,id,pellets=false){
   ctx.restore();
 }
 function flight(i,t){
-  const target=flowers[i%flowers.length],phase=(t*(.065+.05*noise(i+2))+noise(i+27))%1;
+  const clock=t*(.065+.05*noise(i+2))+noise(i+27);
+  const trip=Math.floor(clock),phase=clock-trip;
+  if(trips[i]?.trip!==trip){
+    trips[i]={trip,bed:chooseBed(sim.flowers,noise(i*191+trip*13+77))};
+  }
+  const target=trips[i].bed;
   const perched=phase>=.4 && phase<.6, returning=phase>=.6;
   const u=returning?(1-phase)/.4:Math.min(1,phase/.4), dir=returning?-1:1;
-  const ex=.501,ey=.582,tx=target[0]+.04*(noise(i+6)-.5),ty=target[1]+.04*(noise(i+15)-.5);
+  const ex=.501,ey=.582,tx=target.x+.04*(noise(i+6)-.5),ty=target.y+.04*(noise(i+15)-.5);
   const dx=tx-ex,dy=ty-ey,bend=.22*(noise(i+10)-.5)*Math.sin(u*Math.PI);
   const flutter=.005*Math.sin(13*u+i)*Math.sin(Math.PI*u);
   return [ex+u*dx+dy*bend+flutter,ey+u*dy-dx*bend+flutter,Math.atan2(dy*dir,dx*dir),perched,returning];

@@ -18,8 +18,9 @@ function paintGarden(ctx,sim,sky,t){
       ctx.drawImage(patch.image,patch.x+sway*strength*4,patch.y+sway*strength*2,patch.size,patch.size);
     }
   }
-  if(sim.season==='Automne')wash('rgba(160,87,26,.12)');
-  if(sim.season==='Hiver')wash('rgba(199,212,208,.23)');
+  wash('rgba(157,87,29,'+(.22*sim.autumnColor)+')');
+  wash('rgba(178,191,187,'+(.22*sim.winterColor**3)+')');
+  paintBeds(ctx,sim,sky,t);
   const dusk=Math.max(0,1-Math.abs(sky.sun-.10)*3)*sky.light;
   const glow=ctx.createLinearGradient(sky.hour<12?0:1000,0,sky.hour<12?1000:0,600);
   glow.addColorStop(0,'rgba(255,170,78,'+dusk*.52+')');glow.addColorStop(1,'rgba(255,188,122,0)');
@@ -72,3 +73,49 @@ gardenImage.onload=()=>{
   }
 };
 gardenImage.src='garden.webp';
+
+// Fixed garden beds. Their three flowering periods use the same curves as forage availability.
+const beds=[
+  {x:.13,y:.12,group:0},{x:.31,y:.075,group:0},{x:.77,y:.18,group:1},
+  {x:.85,y:.28,group:2},{x:.11,y:.89,group:2},{x:.085,y:.74,group:1},
+  {x:.88,y:.78,group:1},{x:.89,y:.91,group:0},{x:.09,y:.40,group:0},{x:.62,y:.94,group:2}
+];
+const bedCounts=[4,3,3];
+function chooseBed(flowers,roll){
+  const total=flowers.reduce((a,b)=>a+b,0);
+  let budget=roll*total;
+  for(const bed of beds){
+    budget-=flowers[bed.group]/bedCounts[bed.group];
+    if(budget<=0)return bed;
+  }
+  return beds[beds.length-1];
+}
+const sprites=new Map();
+function blossom(group){
+  if(sprites.has(group))return sprites.get(group);
+  const tile=document.createElement('canvas');tile.width=tile.height=32;
+  const g=tile.getContext('2d');g.translate(16,16);
+  const petals=['#f4d8dd','#bea4dc','#f3c65b'];
+  for(let j=0;j<6;j++){
+    g.rotate(Math.PI/3);g.fillStyle=petals[group];g.beginPath();g.ellipse(0,-6,3.2,6,.12,0,Math.PI*2);g.fill();
+  }
+  g.fillStyle='#aa7427';g.beginPath();g.arc(0,0,3.5,0,Math.PI*2);g.fill();
+  sprites.set(group,tile);return tile;
+}
+function paintBeds(ctx,sim,sky,t){
+  const frost=Math.min(1,Math.max(0,(7-sim.air)/5))*sim.moisture*(1-sky.light*.8);
+  for(const [index,bed] of beds.entries()){
+    const bloom=sim.flowers[bed.group]/[.65,.88,.45][bed.group];
+    for(let j=0;j<21;j++){
+      const k=index*31+j,angle=noise(k+3)*Math.PI*2,r=29*Math.sqrt(noise(k+64));
+      const x=bed.x*1000+r*Math.cos(angle),y=bed.y*1000+r*Math.sin(angle);
+      const sway=1.8*sky.breeze*Math.sin(t*1.2+index+j*.16);
+      const size=Math.max(0,Math.min(1,(bloom-noise(k+161)*.76)*3))*(6+5*noise(k+25));
+      if(size>1)ctx.drawImage(blossom(bed.group),x+sway-size/2,y-size/2,size,size);
+      if(frost>.03){
+        ctx.fillStyle='rgba(231,241,240,'+(frost*.55)+')';
+        ctx.fillRect(x,y,2.4,1.4);
+      }
+    }
+  }
+}
