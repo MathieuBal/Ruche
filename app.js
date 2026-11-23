@@ -37,7 +37,7 @@ const modal=document.querySelector('dialog');$('sources').onclick=()=>modal.show
 function resize(){
   const size=Math.max(1,Math.round(scene.clientWidth*Math.min(devicePixelRatio||1,2))); canvas.width=canvas.height=size;draw();
 }
-const trips=[];
+const flights=new GardenFlights(noise);
 function noise(k){const v=Math.sin(k*127.1+311.7)*43758.5453;return v-Math.floor(v)}
 function bee(x,y,angle,s,flight,id,pellets=false){
   ctx.save();ctx.translate(x,y);ctx.rotate(angle);ctx.scale(s,s);
@@ -51,20 +51,6 @@ function bee(x,y,angle,s,flight,id,pellets=false){
     for(const side of [-1,1]){ctx.beginPath();ctx.arc(-1.35,side*1.38,1,0,Math.PI*2);ctx.fill();}
   }
   ctx.restore();
-}
-function flight(i,t){
-  const clock=t*(.065+.05*noise(i+2))+noise(i+27);
-  const trip=Math.floor(clock),phase=clock-trip;
-  if(trips[i]?.trip!==trip){
-    trips[i]={trip,bed:chooseBed(sim.flowers,noise(i*191+trip*13+77))};
-  }
-  const target=trips[i].bed;
-  const perched=phase>=.4 && phase<.6, returning=phase>=.6;
-  const u=returning?(1-phase)/.4:Math.min(1,phase/.4), dir=returning?-1:1;
-  const ex=.501,ey=.582,tx=target.x+.04*(noise(i+6)-.5),ty=target.y+.04*(noise(i+15)-.5);
-  const dx=tx-ex,dy=ty-ey,bend=.22*(noise(i+10)-.5)*Math.sin(u*Math.PI);
-  const flutter=.005*Math.sin(13*u+i)*Math.sin(Math.PI*u);
-  return [ex+u*dx+dy*bend+flutter,ey+u*dy-dx*bend+flutter,Math.atan2(dy*dir,dx*dir),perched,returning];
 }
 // Sample a patch of the brood comb. Each cell keeps its rank between model updates.
 const cellPatch=[];
@@ -96,11 +82,8 @@ function draw(){
   if(!inside){
     const sky=gardenSky(sim);
     paintGarden(ctx,sim,sky,elapsed);
-    const n=Math.min(150,Math.ceil(sim.foragers*sky.flight/45));
-    for(let i=0;i<n;i++){
-      const [x,y,a,perched,returning]=flight(i,elapsed);
-      const pollen=returning && noise(i+73)<sim.pollenForagers/Math.max(1,sim.foragers);
-      bee(x*1000,y*1000,a,1.5,!perched,i,pollen);
+    for(const agent of flights.agents){
+      bee(agent.x*1000,agent.y*1000,agent.angle,1.5,agent.state!=='flower',agent.id,agent.pollen);
     }
     paintGardenForeground(ctx,sim,sky,elapsed);
     return;
@@ -122,7 +105,10 @@ function frame(ms){
     const advance=dt*speed/24;
     const midnights=Math.floor(sim.day%1+advance);
     sim.step(advance+13*midnights);
-    elapsed+=dt;}
+    elapsed+=dt;
+    const sky=gardenSky(sim);
+    flights.step(dt,sim.foragers*sky.flight/45,sim.pollenForagers/Math.max(1,sim.foragers),roll=>chooseBed(sim.flowers,roll));
+  }
   if(lastUpdate!==Math.floor(sim.day*240)){lastUpdate=Math.floor(sim.day*240);update();}
   if(ms-lastRender>=1000/30){draw();lastRender=ms;}
   requestAnimationFrame(frame);
