@@ -33,12 +33,6 @@ $('visit').onclick=()=>setView(true);$('back').onclick=()=>setView(false);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&inside&&!document.querySelector('dialog').open)setView(false)});
 $('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'▶':'Ⅱ';$('pause').setAttribute('aria-label',paused?'Reprendre':'Mettre en pause')};
 document.querySelectorAll('[data-speed]').forEach(btn=>btn.onclick=()=>{speed=Number(btn.dataset.speed);document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)))});
-$('nextSeason').onclick=()=>{
-  const previous=sim.season;
-  do{sim.step(1);}while(sim.season===previous);
-  trips.length=0;
-  update();draw();
-};
 const modal=document.querySelector('dialog');$('sources').onclick=()=>modal.showModal();$('close').onclick=()=>modal.close();
 function resize(){
   const size=Math.max(1,Math.round(scene.clientWidth*Math.min(devicePixelRatio||1,2))); canvas.width=canvas.height=size;draw();
@@ -131,9 +125,14 @@ function draw(){
   }
 }
 function frame(ms){
-  const dt=Math.min(.12,Math.max(0,(ms-(last||ms))/1000));last=ms;
-  if(!paused&&!modal.open&&!document.hidden){sim.step(dt*speed/120);elapsed+=dt*Math.min(4,Math.sqrt(speed));}
-  if(lastUpdate!==Math.floor(sim.day*1440)){lastUpdate=Math.floor(sim.day*1440);update();}
+  const dt=Math.min(1,Math.max(0,(ms-(last||ms))/1000));last=ms;
+  if(!paused&&!modal.open&&!document.hidden){// Each observed day lasts 24 seconds at normal speed. At midnight the
+    // model processes the intervening days before the next observation.
+    const advance=dt*speed/24;
+    const midnights=Math.floor(sim.day%1+advance);
+    sim.step(advance+13*midnights);
+    elapsed+=dt;}
+  if(lastUpdate!==Math.floor(sim.day*240)){lastUpdate=Math.floor(sim.day*240);update();}
   draw();requestAnimationFrame(frame);
 }
 if(paused){$('pause').textContent='▶';$('pause').setAttribute('aria-label','Reprendre');}

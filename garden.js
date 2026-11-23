@@ -11,13 +11,28 @@ function gardenSky(sim){
 function paintGarden(ctx,sim,sky,t){
   const wash=(color)=>{ctx.fillStyle=color;ctx.fillRect(0,0,1000,1000);};
   const wave=Math.sin(t*.38), strength=sky.breeze;
+  if(seasonalGround.length){
+    for(const [index,opacity] of [[0,sim.autumnColor],[1,sim.winterColor**5]]){
+      if(opacity<.015)continue;
+      ctx.globalAlpha=opacity;
+      ctx.drawImage(seasonalGround[index],0,0,1000,1000);
+    }
+    ctx.globalAlpha=1;
+  }
   // Move small islands of existing foliage together, with feathered edges.
   if(foliage.length){
     for(const patch of foliage){
       const sway=Math.sin(t*.75+patch.phase)+.4*wave;
-      ctx.drawImage(patch.image,patch.x+sway*strength*4,patch.y+sway*strength*2,patch.size,patch.size);
+      ctx.globalAlpha=1-Math.max(sim.autumnColor,sim.winterColor**5);
+      ctx.save();
+      ctx.translate(patch.x+patch.size*.5,patch.y+patch.size);
+      ctx.rotate(sway*strength*.045);
+      ctx.drawImage(patch.image,-patch.size*.5,-patch.size,patch.size,patch.size);
+      ctx.restore();
     }
   }
+  ctx.globalAlpha=1;
+  paintMeadow(ctx,sim,sky,t);
   wash('rgba(157,87,29,'+(.22*sim.autumnColor)+')');
   wash('rgba(178,191,187,'+(.22*sim.winterColor**3)+')');
   paintBeds(ctx,sim,sky,t);
@@ -60,8 +75,32 @@ function paintGarden(ctx,sim,sky,t){
   }
 }
 const foliage=[];
+const seasonalGround=[];
+function buildSeasonalGround(image,winter){
+  const plate=document.createElement('canvas');
+  plate.width=plate.height=800;
+  const brush=plate.getContext('2d');
+  brush.drawImage(image,0,0,800,800);
+  const pixels=brush.getImageData(0,0,800,800);
+  const data=pixels.data;
+  for(let i=0;i<data.length;i+=4){
+    const r=data[i],g=data[i+1],b=data[i+2];
+    // Select foliage by colour so the wooden hive, wall and path keep their materials.
+    const weight=Math.max(0,Math.min(1,(g-r*.86)/19,(g-b)/26));
+    if(!weight)continue;
+    const value=.30*r+.58*g+.12*b;
+    const tone=winter?[value*.74+51,value*.78+52,value*.77+49]:
+      [value*1.25+17,value*.80+9,value*.45+6];
+    for(let k=0;k<3;k++)data[i+k]+=(tone[k]-data[i+k])*weight;
+  }
+  brush.putImageData(pixels,0,0);
+  return plate;
+}
 const gardenImage=new Image();
 gardenImage.onload=()=>{
+  if(location.protocol!=='file:'){
+    seasonalGround.push(buildSeasonalGround(gardenImage,false),buildSeasonalGround(gardenImage,true));
+  }
   for(const [cx,cy,size] of [[100,135,175],[860,210,178],[102,822,164],[875,870,185],[275,72,105]]){
     const image=document.createElement('canvas');image.width=image.height=160;
     const g=image.getContext('2d'),x=cx-size/2,y=cy-size/2,k=gardenImage.naturalWidth/1000;
@@ -118,4 +157,46 @@ function paintBeds(ctx,sim,sky,t){
       }
     }
   }
+}
+
+// Permanent roots along the borders. Neighbouring stems bend together as a gust passes.
+const grassTufts=[];
+function paintMeadow(ctx,sim,sky,t){
+  if(!grassTufts.length){
+    for(const [index,bed] of beds.entries()){
+      for(let j=0;j<10;j++){
+        const seed=index*47+j;
+        grassTufts.push({x:bed.x*1000+(noise(seed+160)-.5)*135,
+          y:bed.y*1000+(noise(seed+191)-.5)*104, height:9+noise(seed+230)*21, seed});
+      }
+    }
+  }
+  ctx.save();
+  ctx.lineCap='round';
+  const dormant=sim.winterColor**4;
+  const colors=dormant>.55?['#756950','#a29979','#c7bd98']:
+    sim.autumnColor>.4?['#77602b','#ae843b','#cda65e']:['#42552b','#789048','#9ba65c'];
+  for(let blade=0;blade<3;blade++){
+    ctx.beginPath();
+    for(const tuft of grassTufts){
+      const {x,y,height,seed}=tuft;
+      const gust=Math.sin(t*1.45-x*.009+y*.002)+.48*Math.sin(t*2.5+seed*.17);
+      const h=height*(1-dormant*.46)*(1-blade*.13);
+      const bend=(3+gust*(4+4*sky.breeze))*(h/20)+(blade-1)*6;
+      ctx.moveTo(x,y);
+      ctx.quadraticCurveTo(x+bend*.18,y-h*.68,x+bend,y-h);
+    }
+    ctx.lineWidth=1.5;ctx.strokeStyle=colors[blade];ctx.stroke();
+  }
+  if(sim.season==='Printemps' && !sim.rain){
+    for(let i=0;i<16;i++){
+      const age=(noise(i+730)+t*(.073+.037*noise(i+639)))%1;
+      const x=55+noise(i+680)*240+age*125+13*Math.sin(age*7+i);
+      const y=30+noise(i+640)*130+age*190;
+      ctx.globalAlpha=Math.sin(age*Math.PI)*.9;
+      ctx.fillStyle=i%2?'#ffdfdf':'#fff5e5';
+      ctx.beginPath();ctx.ellipse(x,y,2.7,.7+1.3*Math.abs(Math.sin(t*2+i)),age*5+i,0,Math.PI*2);ctx.fill();
+    }
+  }
+  ctx.restore();
 }
