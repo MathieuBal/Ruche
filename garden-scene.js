@@ -278,9 +278,11 @@ function paintGarden(ctx,sim,sky,time) {
   garden.wet+=(sim.moisture-garden.wet)*ease;
   garden.rain+=(Number(sim.rain)-garden.rain)*ease;
   for(let i=0;i<3;i++) garden.bloom[i]+=(sim.flowers[i]-garden.bloom[i])*ease;
+  updateGardenSurface(sim,sky,delta);
   ctx.drawImage(garden.ground,0,0,1000,1000);
   ctx.fillStyle='rgba(169,128,62,'+(garden.autumn*.24)+')';ctx.fillRect(0,0,1000,1000);
   ctx.fillStyle='rgba(188,183,160,'+(garden.winter*.25)+')';ctx.fillRect(0,0,1000,1000);
+  paintGardenSurface(ctx,sky,time);
   paintWater(ctx,sky,time);
   paintTreeShadows(ctx,sky,time);
   paintGrass(ctx,sky,time);
@@ -318,7 +320,15 @@ function paintGardenForeground(ctx,sim,sky,time) {
       ctx.fillStyle='#4c4833';ctx.fillRect(-.6,-4,1.2,8);ctx.restore();
     }
   }
-  if(garden.rain>.015) {
+  const snowing=sim.air-4*(1-sky.light)<2;
+  if(garden.rain>.015 && snowing) {
+    for(let i=0;i<75;i++) {
+      const y=(gardenRandom(i+311)*1100+time*27)%1100-50;
+      const x=(gardenRandom(i+80)*1100+time*8+Math.sin(time+i)*9)%1100-30;
+      ellipse(ctx,x,y,1.2+gardenRandom(i+51),1.4,'rgba(236,240,235,'+garden.rain*.7+')');
+    }
+  }
+  if(garden.rain>.015 && !snowing) {
     ctx.strokeStyle='rgba(220,232,229,'+(garden.rain*.46)+')';ctx.lineWidth=1.1;ctx.beginPath();
     for(let i=0;i<100;i++) {
       const y=(gardenRandom(i+311)*1100+time*400)%1100-50;
@@ -336,4 +346,41 @@ function paintGardenForeground(ctx,sim,sky,time) {
   glow.addColorStop(0,'rgba(255,173,82,'+dusk*.4+')');glow.addColorStop(1,'rgba(255,188,122,0)');
   ctx.fillStyle=glow;ctx.fillRect(0,0,1000,1000);
   ctx.fillStyle='rgba(11,23,45,'+(.72*(1-sky.light))+')';ctx.fillRect(0,0,1000,1000);
+}
+
+// Surface traces persist between showers and decay using elapsed animation time.
+const gardenSurface={leaves:0,snow:0,puddles:0};
+function updateGardenSurface(sim,sky,delta) {
+  const seconds=Math.min(1,delta);
+  const cold=sim.air-4*(1-sky.light);
+  const leafTarget=garden.autumn*.95;
+  gardenSurface.leaves+=(leafTarget-gardenSurface.leaves)*(1-Math.exp(-seconds*.035));
+  const snowfall=garden.rain*Math.max(0,Math.min(1,(2-cold)/3));
+  gardenSurface.snow=Math.max(0,Math.min(1,gardenSurface.snow+seconds*(snowfall*.035-Math.max(0,cold-1)*.0015)));
+  gardenSurface.puddles=Math.max(0,Math.min(1,gardenSurface.puddles+seconds*(garden.rain*.045-(.004+sky.light*.008))));
+}
+function paintGardenSurface(ctx,sky,time) {
+  for(let i=0;i<100;i++) {
+    const x=45+gardenRandom(i+710)*900,y=160+gardenRandom(i+910)*820;
+    if(gardenRandom(i+1200)<gardenSurface.leaves) {
+      ellipse(ctx,x+1,y+2,4,1.8,'rgba(38,35,19,.2)',i);
+      ellipse(ctx,x,y,4,1.7,i%2?'#b68b4e':'#976b3b',i);
+    }
+  }
+  for(const [x,y,r] of [[461,831,26],[420,692,20],[652,383,16]]) {
+    const wet=gardenSurface.puddles;
+    if(wet<.03)continue;
+    ellipse(ctx,x,y,r*wet,8*wet,'rgba(58,75,66,.35)',-.35);
+    ellipse(ctx,x-2,y-1,r*wet*.85,5*wet,'rgba(166,188,176,.45)',-.35);
+    if(garden.rain>.1) {
+      const phase=(time*.9+x)%1;
+      ctx.strokeStyle='rgba(220,231,216,'+((1-phase)*garden.rain*.6)+')';
+      ctx.lineWidth=.8;ctx.beginPath();ctx.ellipse(x,y,phase*r*wet,phase*7*wet,-.35,0,Math.PI*2);ctx.stroke();
+    }
+  }
+  if(gardenSurface.snow>.01) {
+    ctx.save();ctx.globalAlpha=gardenSurface.snow*.7;
+    for(const grass of garden.grass) ellipse(ctx,grass.x,grass.y,7,2.5,'#e1e5dc',grass.seed);
+    ctx.restore();
+  }
 }
