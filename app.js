@@ -4,7 +4,7 @@ sim.step(9/24);
 const $ = id => document.getElementById(id);
 const scene=$('scene'), canvas=scene.querySelector('canvas'), ctx=canvas.getContext('2d');
 const format=new Intl.NumberFormat('fr-FR'), dec=new Intl.NumberFormat('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1});
-let inside=false, paused=matchMedia("(prefers-reduced-motion: reduce)").matches, speed=1, elapsed=0, last=0, lastUpdate=-1;
+let inside=false, paused=matchMedia("(prefers-reduced-motion: reduce)").matches, speed=1, elapsed=0, last=0, lastUpdate=-1, lastRender=-Infinity;
 const rows=[['Ouvrières','population'],['Butineuses en vol','foragers'],['Miel','honey'],['Couvain','brood'],['Œufs','eggs'],['Larves','larvae'],['Cellules operculées','sealed'],['Pollen','pollen'],['Température du couvain','temp'],['Reine','queenStatus'],['Collecte de pollen','pollenForagers'],['Collecte de nectar','nectarForagers']];
 for(const [label,key] of rows){
   const div=document.createElement('div'), dt=document.createElement('dt'), dd=document.createElement('dd');
@@ -102,16 +102,7 @@ function draw(){
       const pollen=returning && noise(i+73)<sim.pollenForagers/Math.max(1,sim.foragers);
       bee(x*1000,y*1000,a,1.5,!perched,i,pollen);
     }
-    if(sim.rain){
-      ctx.fillStyle='rgba(22,43,58,.18)';ctx.fillRect(0,0,1000,1000);
-      ctx.strokeStyle='rgba(218,231,236,.42)';ctx.lineWidth=1.3;ctx.beginPath();
-      for(let i=0;i<65;i++){
-        const y=(noise(i+7)*1000+elapsed*330)%1020-10;
-        const x=(noise(i+50)*1000+.17*y+1000)%1000;
-        ctx.moveTo(x,y);ctx.lineTo(x+2,y+11);
-      }
-      ctx.stroke();
-    }
+    paintGardenForeground(ctx,sim,sky,elapsed);
     return;
   }
   drawBrood();
@@ -133,7 +124,8 @@ function frame(ms){
     sim.step(advance+13*midnights);
     elapsed+=dt;}
   if(lastUpdate!==Math.floor(sim.day*240)){lastUpdate=Math.floor(sim.day*240);update();}
-  draw();requestAnimationFrame(frame);
+  if(ms-lastRender>=1000/30){draw();lastRender=ms;}
+  requestAnimationFrame(frame);
 }
 if(paused){$('pause').textContent='▶';$('pause').setAttribute('aria-label','Reprendre');}
 new ResizeObserver(resize).observe(scene);update();resize();requestAnimationFrame(frame);

@@ -6,7 +6,7 @@ Ouvrir `index.html` dans un navigateur. Le projet est statique et fonctionne san
 
 ## Modèle
 
-Les ouvrières et le couvain sont simulés par groupes d'âge. Les abeilles dessinées échantillonnent la population et les sorties calculées. Les floraisons, la météo et les rendements correspondent à un jardin tempéré fictif. La simulation suit la ruche mère après un essaimage. Les deux décors sont des illustrations générées pour le projet.
+Les ouvrières et le couvain sont simulés par groupes d'âge. Les abeilles dessinées échantillonnent la population et les sorties calculées. Les floraisons, la météo et les rendements correspondent à un jardin tempéré fictif. La simulation suit la ruche mère après un essaimage. Le jardin est une composition Canvas de branches articulées, de plantes enracinées, d’herbes, d’un bassin et d’une ruche indépendante. Les éléments partagent un champ de vent. Les dessins des plantes et de la ruche proviennent d’un atlas généré, le sol utilise une texture de prairie. La coupe intérieure conserve son illustration. Les papillons sont décoratifs. Le rendu est limité à 30 images par seconde.
 
 ### Sources publiques
 
