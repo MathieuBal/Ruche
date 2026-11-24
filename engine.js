@@ -19,14 +19,16 @@
     constructor() {
       this.day = 0;
       this.moisture = .65;
-      this._adults = Array.from({length:210}, (_, age) => age < 46 ? 390 * Math.exp(-age/55) : 0);
-      this._young = Array.from({length:21}, (_, age) => 540 - 7 * age);
-      this.honey = 10;
-      this.pollen = 1.6;
+      this._adults = Array.from({length:210}, (_, age) => age < 30 ? 60 : 0);
+      this._young = Array(21).fill(0);
+      this.honey = 2;
+      this.pollen = .35;
+      this.comb = .08;
+      this.milestones = [];
       this.nectar = .55;
       this.swarms = 0;
       this.lastSwarm = -400;
-      this.event = 'Les premières butineuses visitent les fleurs du jardin.';
+      this.event = 'Une petite colonie vient de s’installer. Les premiers rayons restent à construire.';
       this.queenStatus = 'En ponte';
       this.newWorkers = 0;
       this._calendar(0);
@@ -115,11 +117,15 @@
         this.queenStatus='En ponte';
         this.event='Après ses vols de fécondation, la jeune reine commence à pondre.';
       }
+      // Illustrative wax-building budget; growth needs workers and available food.
+      const built = Math.min(1-this.comb, this.population*.000002*clamp((this.honey-.4)/2));
+      this.comb += built;
+      this.honey = Math.max(0,this.honey-built*2);
       const crowd = clamp((52000-this.population-this.brood*.4)/15000);
       const availableNurses = clamp((sum(this._adults,2,19) + .34*sum(this._adults,19))/3900);
       const spring = clamp((1+Math.cos((this._yearDay-145)*2*Math.PI/365))/2);
       const lay = 1550*spring**1.65*availableNurses*crowd*clamp(this.honey/2)*clamp(this.pollen/.35);
-      this._young[0] = this.queenStatus==='En ponte' ? Math.round(lay) : 0;
+      this._young[0] = this.queenStatus==='En ponte' ? Math.round(Math.min(lay,Math.max(0,this.comb*48000-sum(this._young,1)))) : 0;
       // Congestion, forage and adult strength jointly gate a primary swarm.
       if (sinceSwarm>250 && this._yearDay>=107 && this._yearDay<=180 && this.population>23500 &&
           this.brood>13000 && this.honey>6 && this.bloom>.55 && !this.rain && this.air>16) {
@@ -131,6 +137,16 @@
       }
       this._count();
       this._flight();
+      const milestones=[
+        ['eggs',this.eggs>0,'Premiers œufs : la reine commence à occuper les nouvelles cellules.'],
+        ['larvae',this.larvae>0,'Premières larves : les nourrices les alimentent.'],
+        ['sealed',this.sealed>0,'Le premier couvain est operculé. Les futures ouvrières se développent.'],
+        ['birth',this.newWorkers>0,'Premières naissances : la nouvelle génération rejoint la colonie.'],
+        ['comb',this.comb>=.5,'La moitié des rayons est construite. La colonie étend son espace.']
+      ];
+      for(const [id,ready,message] of milestones)if(ready&&!this.milestones.includes(id)){
+        this.milestones.push(id);this.event=message;
+      }
     }
     step(days) {
       if(!Number.isFinite(days) || days <= 0) return;

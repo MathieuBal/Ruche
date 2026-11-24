@@ -30,6 +30,7 @@ function buildHiveSection(sim) {
     for(let row=0;row<36;row++)for(let col=0;col<12;col++) {
       const x=left+21+col*20+(row%2)*10,y=148+row*19.5;
       if(x>left+249)continue;
+      if(Math.abs(row-18)/18>Math.max(0,Math.min(1,sim.comb*3-frame)))continue;
       const rank=noise(frame*1500+row*19+col),radius=Math.hypot((x-left-135)/130,(y-535)/230);
       let type='empty';
       if(y<330 && rank<Math.min(.98,sim.honey/35))type='honey';
@@ -57,7 +58,7 @@ function buildHiveSection(sim) {
     const frame=i%3;
     const zone=c=>c.x>=61+frame*298&&c.x<331+frame*298;
     const pool=(i%2!==0?brood:stores).filter(zone);
-    const available=pool.length?pool:hiveSection.cells.filter(zone);
+    const available=pool.length?pool:(hiveSection.cells.filter(zone).length?hiveSection.cells.filter(zone):hiveSection.cells);
     return Array.from({length:5},(_,j)=>available[Math.floor(noise(i*37+j*109+17)*available.length)%available.length]);
   });
   hiveSection.plate=plate;

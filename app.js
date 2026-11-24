@@ -5,7 +5,7 @@ const $ = id => document.getElementById(id);
 const scene=$('scene'), canvas=scene.querySelector('canvas'), ctx=canvas.getContext('2d');
 const format=new Intl.NumberFormat('fr-FR'), dec=new Intl.NumberFormat('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1});
 let inside=false, paused=matchMedia("(prefers-reduced-motion: reduce)").matches, speed=1, elapsed=0, last=0, lastUpdate=-1, lastRender=-Infinity;
-const rows=[['Ouvrières','population'],['Butineuses en vol','foragers'],['Miel','honey'],['Couvain','brood'],['Œufs','eggs'],['Larves','larvae'],['Cellules operculées','sealed'],['Pollen','pollen'],['Température du couvain','temp'],['Reine','queenStatus'],['Collecte de pollen','pollenForagers'],['Collecte de nectar','nectarForagers']];
+const rows=[['Ouvrières','population'],['Butineuses en vol','foragers'],['Miel','honey'],['Couvain','brood'],['Œufs','eggs'],['Larves','larvae'],['Cellules operculées','sealed'],['Pollen','pollen'],['Température du couvain','temp'],['Reine','queenStatus'],['Rayons construits','comb'],['Collecte de pollen','pollenForagers'],['Collecte de nectar','nectarForagers']];
 for(const [label,key] of rows){
   const div=document.createElement('div'), dt=document.createElement('dt'), dd=document.createElement('dd');
   dt.textContent=label; dd.id='stat-'+key;div.append(dt,dd);$('stats').append(div);
@@ -16,7 +16,7 @@ function update(){
     const key=rows[i][1], dd=$('stat-'+key);
     dd.parentNode.hidden=!inside && i>=4;
     dd.parentNode.style.display=dd.parentNode.hidden?'none':'';
-    dd.textContent=key==='temp'?dec.format(sim.temp)+' °C':key==='honey'||key==='pollen'?dec.format(sim[key])+' kg':key==='queenStatus'?sim[key]:format.format(['foragers','pollenForagers','nectarForagers'].includes(key)?Math.round(sim[key]*sky.flight):sim[key]);
+    dd.textContent=key==='comb'?Math.round(sim.comb*100)+' %':key==='temp'?dec.format(sim.temp)+' °C':key==='honey'||key==='pollen'?dec.format(sim[key])+' kg':key==='queenStatus'?sim[key]:format.format(['foragers','pollenForagers','nectarForagers'].includes(key)?Math.round(sim[key]*sky.flight):sim[key]);
   }
   $('event').textContent=sim.event;
   $('season').textContent=sim.season;
@@ -72,7 +72,7 @@ function frame(ms){
     // model processes the intervening days before the next observation.
     const advance=dt*speed/24;
     const midnights=Math.floor(sim.day%1+advance);
-    sim.step(advance+13*midnights);
+    sim.step(advance+(sim.day<30?2:13)*midnights);
     elapsed+=dt;
     const sky=gardenSky(sim);
     flights.step(dt,sim.foragers*sky.flight/45,sim.pollenForagers/Math.max(1,sim.foragers),roll=>chooseBed(sim.flowers,roll));

@@ -67,7 +67,7 @@ test('les collectes de pollen et de nectar suivent les besoins du couvain', () =
   sim.pollen=.1;sim._flight();
   assert.ok(sim.pollenForagers>full);
   const low=sim.pollenForagers;
-  sim.larvae*=2;sim._flight();
+  sim.larvae=2000;sim._flight();
   assert.ok(sim.pollenForagers>low);
   assert.equal(sim.pollenForagers+sim.nectarForagers,total);
 });
@@ -83,4 +83,21 @@ test('la pluie humidifie le jardin et le sol sèche pendant les journées sèche
     if(!sim.rain && before>.05){assert.ok(sim.moisture<before);dryDays++;}
   }
   assert.ok(showers>0 && dryDays>0);
+});
+
+
+test('installation : rayons, ponte puis première génération', () => {
+  const sim=new HiveSim();
+  assert.equal(sim.population,1800);
+  assert.equal(sim.brood,0);
+  const comb=sim.comb;
+  sim.step(1);
+  assert.ok(sim.eggs>0);
+  assert.ok(sim.comb>comb);
+  sim.step(20);
+  assert.equal(sim.newWorkers,0);
+  sim.step(1);
+  assert.ok(sim.newWorkers>0);
+  assert.ok(sim.milestones.includes('birth'));
+  assert.ok(sim.brood<=sim.comb*48000+3);
 });
