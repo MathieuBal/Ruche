@@ -52,31 +52,6 @@ function bee(x,y,angle,s,flight,id,pellets=false){
   }
   ctx.restore();
 }
-// Sample a patch of the brood comb. Each cell keeps its rank between model updates.
-const cellPatch=[];
-for(let row=-4; row<=4; row++)for(let col=-6; col<=6; col++){
-  if((col/6.5)**2+(row/4.7)**2>1)continue;
-  const index=cellPatch.length;
-  cellPatch.push({x:505+12.1*(col+(row%2)/2),y:542+row*10.5,rank:noise(index+54)});
-}
-function drawBrood(){
-  const occupancy=Math.min(.98,sim.brood/15000);
-  const eggs=occupancy*sim.eggs/Math.max(1,sim.brood);
-  const larvae=occupancy*sim.larvae/Math.max(1,sim.brood);
-  for(const {x,y,rank} of cellPatch){
-    const cap=rank>=eggs+larvae && rank<occupancy;
-    ctx.fillStyle=cap?'#b4773ded':'#6a391adf';ctx.strokeStyle='#d79745';ctx.lineWidth=.85;
-    ctx.beginPath();
-    for(let k=0;k<6;k++){const a=(k+.5)*Math.PI/3;
-      const px=x+6.8*Math.cos(a),py=y+6.8*Math.sin(a);
-      if(k===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
-    }
-    ctx.closePath();ctx.fill();ctx.stroke();
-    if(rank<eggs){ctx.fillStyle='#fff2c9';ctx.beginPath();ctx.ellipse(x,y,.85,2.15,rank*8,0,Math.PI*2);ctx.fill();}
-    else if(rank<eggs+larvae){ctx.strokeStyle='#f2dda0';ctx.lineWidth=2.2;ctx.beginPath();ctx.arc(x,y,2.45,.3,5.4);ctx.stroke();}
-    else if(cap){ctx.fillStyle='#e8bd7d88';ctx.beginPath();ctx.ellipse(x-1,y-1.7,3.5,1.7,-.15,0,Math.PI*2);ctx.fill();}
-  }
-}
 function draw(){
   const dim=canvas.width; ctx.setTransform(dim/1000,0,0,dim/1000,0,0);ctx.clearRect(0,0,1000,1000);
   if(!inside){
@@ -88,16 +63,9 @@ function draw(){
     paintGardenForeground(ctx,sim,sky,elapsed);
     return;
   }
-  drawBrood();
-  const n=Math.min(110,Math.ceil(Math.max(0,sim.population-sim.foragers*gardenSky(sim).flight)/245));
-  for(let i=0;i<n;i++){
-    const theta=2*Math.PI*noise(i+32),r=Math.sqrt(noise(i+15));
-    const spread=sim.season==='Hiver'?.62:1;
-    const phase=elapsed*(.18+.11*noise(i+24))+12*noise(i+8);
-    const x=.505+spread*.313*r*Math.cos(theta)+.010*Math.sin(phase),y=.514+spread*.258*r*Math.sin(theta)+.012*Math.cos(phase*1.2);
-    bee(x*1000,y*1000,Math.atan2(-1.44*Math.sin(phase*1.2),Math.cos(phase)),2.3,false,i);
-  }
+  paintHive(ctx,sim,elapsed);
 }
+
 function frame(ms){
   const dt=Math.min(1,Math.max(0,(ms-(last||ms))/1000));last=ms;
   if(!paused&&!modal.open&&!document.hidden){// Each observed day lasts 24 seconds at normal speed. At midnight the
