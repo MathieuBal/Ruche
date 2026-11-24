@@ -1,6 +1,6 @@
 'use strict';
 // An illustrative section through three comb faces. Cell proportions follow the colony.
-const hiveSection={plate:null,key:'',cells:[]};
+const hiveSection={plate:null,key:'',cells:[],routes:[]};
 function hiveHex(ctx,x,y,r) {
   ctx.beginPath();
   for(let k=0;k<6;k++) {
@@ -50,6 +50,16 @@ function buildHiveSection(sim) {
   }
   ctx.fillStyle='#201a12';ctx.fillRect(435,931,130,16);
   ctx.fillStyle='#ba945e';ctx.fillRect(425,947,150,8);
+  // Stable per-worker routes: approach a cell, pause, then visit another.
+  const brood=hiveSection.cells.filter(c=>c.type==='egg'||c.type==='larva');
+  const stores=hiveSection.cells.filter(c=>c.type==='honey'||c.type==='pollen');
+  hiveSection.routes=Array.from({length:150},(_,i)=>{
+    const frame=i%3;
+    const zone=c=>c.x>=61+frame*298&&c.x<331+frame*298;
+    const pool=(i%2!==0?brood:stores).filter(zone);
+    const available=pool.length?pool:hiveSection.cells.filter(zone);
+    return Array.from({length:5},(_,j)=>available[Math.floor(noise(i*37+j*109+17)*available.length)%available.length]);
+  });
   hiveSection.plate=plate;
 }
 function paintHive(ctx,sim,time) {
@@ -59,15 +69,18 @@ function paintHive(ctx,sim,time) {
   const count=Math.min(150,Math.ceil(sim.population/230));
   const winter=sim.season==='Hiver';
   for(let i=0;i<count;i++) {
-    const frame=i%3,left=61+frame*298;
-    const nurse=i%3!==0;
-    const cycle=time*(.07+.025*noise(i+6))+noise(i+81)*6;
-    const progress=(1-Math.cos(cycle))* .5;
-    const spread=winter?.52:1;
-    const x=left+135+spread*((noise(i+34)-.5)*190+Math.sin(cycle*.8+i)*15);
-    const y=nurse?535+spread*((noise(i+40)-.5)*310+Math.sin(cycle+i)*20):260+progress*560;
-    const angle=nurse?Math.atan2(Math.cos(cycle+i)*20,Math.cos(cycle*.8+i)*12):Math.sin(cycle)>=0?Math.PI/2:-Math.PI/2;
-    bee(x,y,angle,3.2,false,i,!nurse&&progress>.65&&sim.pollen>0);
+    const route=hiveSection.routes[i];
+    const phase=time*(winter?.035:.09)+noise(i+81)*5;
+    const step=Math.floor(phase),fraction=phase-step;
+    const from=route[step%route.length],to=route[(step+1)%route.length];
+    // The final third is spent at the cell, with a small antenna/body movement.
+    const t=Math.min(1,fraction/.65),ease=t*t*(3-2*t);
+    let x=from.x+(to.x-from.x)*ease,y=from.y+(to.y-from.y)*ease;
+    if(winter){const center=196+(i%3)*298;x=center+(x-center)*.55;y=540+(y-540)*.55;}
+    const tending=fraction>.65;
+    const angle=Math.atan2(to.y-from.y,to.x-from.x)+(tending?Math.sin(time*3+i)*.12:0);
+    bee(x,y,angle,3.2,false,i,i%3===0&&!tending&&sim.pollen>0);
+
   }
   // The queen is a visual guide to the brood area; her status remains model-driven.
   if(sim.queenStatus!=='Cellule royale') {
